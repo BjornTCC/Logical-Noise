@@ -37,11 +37,11 @@ class PauliString:
             self._qubit_width = qubit_width
 
     def __str__(self) -> str:
-        if self._coeff == 1:
+        string_coeff = np.real_if_close(self.coeff)
+        if self.coeff == 1:
             res = ""
         else:
-            res = f"{self._coeff} * "
-
+            res = f"{string_coeff} * "
         for i in range(self._qubit_width):
             if i in self.xs:
                 res += f"X({i})"
@@ -49,9 +49,20 @@ class PauliString:
                 res += f"Y({i})"
             elif i in self.zs:
                 res += f"Z({i})"
-
         return res
 
+    def __mul__(self, other: PauliString) -> PauliString:
+        new_coeff = self.coeff * other.coeff
+        num_qubits = max([self._qubit_width, other.qubit_width])
+        stab_1 = self.to_stabilizer(num_qubits, as_array=True)
+        stab_2 = other.to_stabilizer(num_qubits, as_array=True)
+        new_stab = stab_1 ^ stab_2
+
+        zs_1, xs_1 = np.split(stab_1, 2)
+        zs_2, xs_2 = np.split(stab_2, 2)
+        pow_vector = (zs_1 * xs_2 - xs_1 * zs_2)*(1 - 2*zs_1*xs_1)*(1 - 2*zs_2*xs_2)
+        int_coeff = (1j)**np.sum(pow_vector)
+        return PauliString.from_stabilizer(new_stab, coeff=new_coeff*int_coeff)
 
     @property
     def qubit_width(self) -> int:
@@ -67,11 +78,11 @@ class PauliString:
 
     @property
     def ys(self) -> tuple[int]:
-        return self._xs
+        return self._ys
 
     @property
     def zs(self) -> tuple[int]:
-        return self._xs
+        return self._zs
 
     @classmethod
     def from_string(cls, string: str) -> PauliString:
@@ -115,7 +126,7 @@ class PauliString:
                 case _:
                     raise ValueError(f"Pauli strings must contain only X,Y,Z or I. Got: {pauli}")
 
-        return PauliString(xs,zs,ys,coeff=coeff, qubit_width=len(pauli_string))
+        return PauliString(tuple(xs),tuple(zs),tuple(ys),coeff=coeff, qubit_width=len(pauli_string))
 
     @classmethod
     def from_stabilizer(cls, stabilizer: list[int | bool], coeff: int | float = 1) -> PauliString:
@@ -138,14 +149,25 @@ class PauliString:
         """
         if num_qubits is None:
             num_qubits = self._qubit_width
+
+        zs_stab = np.zeros(num_qubits, dtype = int)
+        xs_stab = np.zeros(num_qubits, dtype = int)
+
+        for i in self.xs:
+            xs_stab[i] ^= 1
+        for i in self.zs:
+            zs_stab[i] ^= 1
+        for i in self.ys:
+            xs_stab[i] ^= 1
+            zs_stab[i] ^= 1
+
         if reverse:
-            res =  [(i in self.xs or i in self.ys) for i in range(num_qubits)] + [(i in self.zs or i in self.ys) for i in range(num_qubits)]
+            res =  np.concatenate((xs_stab, zs_stab))
         else:
-            res = [(i in self.zs or i in self.ys) for i in range(num_qubits)] + [(i in self.xs or i in self.ys) for i in
-                                                                                 range(num_qubits)]
+            res =  np.concatenate((zs_stab, xs_stab))
         if as_array:
-            return np.array([int(i) for i in res])
-        return res
+            return res
+        return [bool(c) for c in res]
 
     def symplectic_product(self, other: PauliString) -> int:
         """
@@ -170,13 +192,9 @@ class PauliString:
 
 if __name__ == "__main__":
     print("test")
-    tuples = (
-        (0,2),
-        (1,2),
-    )
-
-    pstring = PauliString(*tuples)
-    other = PauliString.from_string("XIYZ")
+    pstring = PauliString.from_string("ZX")
+    other = PauliString.from_string("YZ")
     print(pstring)
     print(other)
     print(pstring.commutative_sign(other))
+    print(pstring*other)
