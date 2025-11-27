@@ -104,7 +104,7 @@ class PauliString:
                     self._matrix_representation = np.kron(self._matrix_representation, Z)
                 else:
                     self._matrix_representation = np.kron(self._matrix_representation, I)
-        return self._matrix_representation
+        return self.coeff * self._matrix_representation
 
     @classmethod
     def from_string(cls, string: str) -> PauliString:
