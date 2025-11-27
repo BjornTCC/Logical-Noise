@@ -37,7 +37,7 @@ class PauliString:
 
     @classmethod
     def from_string(cls, string: str) -> PauliString:
-        ...
+        print(test)
 
     @classmethod
     def from_stabilizer(cls, stabilizer: list[int], coeff: int | float | None = None) -> PauliString:
