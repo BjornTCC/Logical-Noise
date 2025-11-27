@@ -36,6 +36,8 @@ class PauliString:
         else:
             self._qubit_width = qubit_width
 
+        self._stabilizer_dict = {}
+
     def __str__(self) -> str:
         string_coeff = np.real_if_close(self.coeff)
         if self.coeff == 1:
@@ -54,8 +56,8 @@ class PauliString:
     def __mul__(self, other: PauliString) -> PauliString:
         new_coeff = self.coeff * other.coeff
         num_qubits = max([self._qubit_width, other.qubit_width])
-        stab_1 = self.to_stabilizer(num_qubits, as_array=True)
-        stab_2 = other.to_stabilizer(num_qubits, as_array=True)
+        stab_1 = self.stabilizer(num_qubits)
+        stab_2 = other.stabilizer(num_qubits)
         new_stab = stab_1 ^ stab_2
 
         zs_1, xs_1 = np.split(stab_1, 2)
@@ -141,9 +143,26 @@ class PauliString:
         zs = tuple([i for i in range(num_qubits) if stabilizer[i]])
         xs = tuple([i for i in range(num_qubits) if stabilizer[num_qubits + i]])
 
-        return PauliString(xs,zs,coeff=coeff, qubit_width=num_qubits)
+        res = PauliString(xs,zs,coeff=coeff, qubit_width=num_qubits)
+        res._stabilizer_dict[-1] = stabilizer
+        return res
 
-    def to_stabilizer(self, num_qubits: int | None = None, as_array: bool = False, reverse: bool = False) -> list[int]:
+    def stabilizer(self, num_qubits: int = -1, swap: bool = False) -> np.ndarray:
+        if -1 < num_qubits < self.qubit_width:
+            raise ValueError(f"num_qubits({num_qubits}) must be greater than qubit_width({self.qubit_width})")
+        if num_qubits not in self._stabilizer_dict:
+            if num_qubits == -1:
+                self._stabilizer_dict[num_qubits] = self._make_stabilizer()
+            else:
+                self._stabilizer_dict[num_qubits] = self._make_stabilizer(num_qubits)
+
+        if swap:
+            return np.concatenate(
+                np.split(self._stabilizer_dict[num_qubits], 2)[::-1]
+            )
+        return self._stabilizer_dict[num_qubits]
+
+    def _make_stabilizer(self, num_qubits: int | None = None) -> np.ndarray:
         """
         Generate the stabilizer representation of the pauli string
         """
@@ -161,22 +180,16 @@ class PauliString:
             xs_stab[i] ^= 1
             zs_stab[i] ^= 1
 
-        if reverse:
-            res =  np.concatenate((xs_stab, zs_stab))
-        else:
-            res =  np.concatenate((zs_stab, xs_stab))
-        if as_array:
-            return res
-        return [bool(c) for c in res]
+        return np.concatenate((zs_stab, xs_stab))
 
     def symplectic_product(self, other: PauliString) -> int:
         """
         Compute the symplectic product of two pauli strings
         """
         num_qubits = max(self.qubit_width, other.qubit_width)
-        stab_1 = self.to_stabilizer(num_qubits, as_array=True)
-        stab_2 = other.to_stabilizer(num_qubits, as_array=True, reverse=True)
-        return sum(stab_1 & stab_2)
+        stab_1 = self.stabilizer(num_qubits)
+        stab_2 = other.stabilizer(num_qubits, swap=True)
+        return sum(stab_1 & stab_2) % 2
 
     def commutative_sign(self, other: PauliString) -> int:
         """
@@ -189,12 +202,3 @@ class PauliString:
         Compute whether the pauli strings commute
         """
         return bool(self.symplectic_product(other))
-
-if __name__ == "__main__":
-    print("test")
-    pstring = PauliString.from_string("ZX")
-    other = PauliString.from_string("YZ")
-    print(pstring)
-    print(other)
-    print(pstring.commutative_sign(other))
-    print(pstring*other)
