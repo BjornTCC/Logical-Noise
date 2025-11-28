@@ -107,6 +107,10 @@ class PauliString:
             self._matrix_representation *= self.coeff
         return self._matrix_representation
 
+    @property
+    def is_identity(self) -> bool:
+        return len(self.xs) == len(self.ys) == len(self.zs) == 0
+
     @classmethod
     def from_string(cls, string: str) -> PauliString:
         """
