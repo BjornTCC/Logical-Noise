@@ -22,7 +22,7 @@ class PauliOperator:
         for p,c in self.string_coeff_pairs.items():
             if p.is_identity:
                 res = f"{c}" + res
-            elif isinstance(c,complex) | (c > 0):
+            elif isinstance(c,complex) or (c > 0):
                 res += f" + {c} * {p}"
             else:
                 res += f" {c} * {p}"
@@ -115,6 +115,10 @@ class PauliOperator:
     @property
     def matrix_representation(self):
         res = 0
-        for P, C in self.string_coeff_pairs:
+        for P, C in self.string_coeff_pairs.items():
             res += C * P.matrix_representation
         return res
+
+    @property
+    def adjoint(self) -> PauliOperator:
+        return PauliOperator({P: np.conjugate(C) for P, C in self.string_coeff_pairs.items()})
