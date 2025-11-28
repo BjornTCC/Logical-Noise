@@ -17,8 +17,6 @@ class PauliString:
         coeff: leading coefficient, if such an object is needed. Default = 1
         qubit_width: number of qubits associated to the pauli string, if None set to the maximum non-trivial qubit index
     """
-    _stabilizer_dict = {}
-    _matrix_representation = None
     def __init__(
         self,
         xs: tuple[int] = (),
@@ -43,6 +41,8 @@ class PauliString:
         else:
             self._qubit_width = qubit_width
 
+        self._stabilizer_dict = {}
+        self._matrix_representation = None
     def __str__(self) -> str:
         string_coeff = np.real_if_close(self.coeff)
         if self.coeff == 1:
@@ -60,7 +60,7 @@ class PauliString:
 
     def __mul__(self, other: PauliString) -> PauliString:
         new_coeff = self.coeff * other.coeff
-        num_qubits = max([self._qubit_width, other.qubit_width])
+        num_qubits = max([self.qubit_width, other.qubit_width])
         stab_1 = self.stabilizer(num_qubits)
         stab_2 = other.stabilizer(num_qubits)
         new_stab = stab_1 ^ stab_2
@@ -94,17 +94,18 @@ class PauliString:
     @property
     def matrix_representation(self) -> np.ndarray:
         if self._matrix_representation is None:
-            self._matrix_representation = np.array([[1]])
+            self._matrix_representation = np.array([[1]], dtype = np.complex128)
             for i in range(self.qubit_width):
                 if i in self.xs:
-                    self._matrix_representation = np.kron(self._matrix_representation, X)
-                if i in self.ys:
-                    self._matrix_representation = np.kron(self._matrix_representation, Y)
-                if i in self.zs:
-                    self._matrix_representation = np.kron(self._matrix_representation, Z)
+                    self._matrix_representation = np.kron(X,self._matrix_representation)
+                elif i in self.ys:
+                    self._matrix_representation = np.kron(Y,self._matrix_representation)
+                elif i in self.zs:
+                    self._matrix_representation = np.kron(Z,self._matrix_representation)
                 else:
-                    self._matrix_representation = np.kron(self._matrix_representation, I)
-        return self.coeff * self._matrix_representation
+                    self._matrix_representation = np.kron(I,self._matrix_representation)
+            self._matrix_representation *= self.coeff
+        return self._matrix_representation
 
     @classmethod
     def from_string(cls, string: str) -> PauliString:
@@ -164,7 +165,7 @@ class PauliString:
         xs = tuple([i for i in range(num_qubits) if stabilizer[num_qubits + i]])
 
         res = PauliString(xs,zs,coeff=coeff, qubit_width=num_qubits)
-        res._stabilizer_dict[-1] = stabilizer
+        res._stabilizer_dict = {-1:stabilizer}
         return res
 
     def stabilizer(self, num_qubits: int = -1, swap: bool = False) -> np.ndarray:
