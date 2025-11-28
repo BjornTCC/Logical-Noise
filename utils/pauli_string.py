@@ -71,6 +71,9 @@ class PauliString:
         int_coeff = (1j)**np.sum(pow_vector)
         return PauliString.from_stabilizer(new_stab, coeff=new_coeff*int_coeff)
 
+    def __eq__(self, other):
+        return (self.xs == other.xs) & (self.ys == other.ys) & (self.zs == other.zs) & (self.coeff == other.coeff) & (self.qubit_width == other.qubit_width)
+
     @property
     def qubit_width(self) -> int:
         return self._qubit_width
