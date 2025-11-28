@@ -59,6 +59,8 @@ class PauliString:
         return res
 
     def __mul__(self, other: PauliString) -> PauliString:
+        if not isinstance(other, PauliString):
+            return other.__rmul__(self)
         new_coeff = self.coeff * other.coeff
         num_qubits = max([self.qubit_width, other.qubit_width])
         stab_1 = self.stabilizer(num_qubits)
@@ -116,6 +118,13 @@ class PauliString:
     @property
     def is_identity(self) -> bool:
         return len(self.xs) == len(self.ys) == len(self.zs) == 0
+
+    @property
+    def normalized(self) -> PauliString:
+        if self.coeff == 1:
+            return self
+
+        return PauliString(self.xs, self.zs, self.ys)
 
     @classmethod
     def from_string(cls, string: str) -> PauliString:
